@@ -1,0 +1,94 @@
+https://cap-service-notif-app.cfapps.us21.hana.ondemand.com/notification-service/Notifications('10000000')
+All notifications: /notification-service/Notifications
+Single notification: /notification-service/Notifications('10000000')
+Items: /notification-service/NotificationItems
+Service metadata: /notification-service/$metadata
+
+
+https://cap-service-notif-app.cfapps.us21.hana.ondemand.com/$fiori-preview/NotificationService/Notifications#preview-app
+"features": {
+      "fiori_preview": true
+    },
+
+_schema-version: "3.1"
+ID: cap-serv-notif
+description: CAP service for S/4HANA Maintenance Notifications
+version: 1.0.0
+modules:
+- name: cap-serv-notif-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+  - name: cxb400-destination
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+    disk-quota: 512M
+    memory: 256M
+    routes:
+    - route: cap-service-notif-app.${default-domain}
+- name: cap-serv-notif-app-content
+  type: com.sap.application.content
+  path: .
+  requires:
+  - name: cap-serv-notif-repo-host
+    parameters:
+      content-target: true
+  build-parameters:
+    build-result: resources
+    requires:
+    - artifacts:
+      - notifications.zip
+      name: notifications
+      target-path: resources/
+- name: notifications
+  type: html5
+  path: app/notifications
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+- name: cxb400-destination
+  type: org.cloudfoundry.existing-service
+  parameters:
+    service: destination
+- name: cap-serv-notif-repo-host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-name: cap-serv-notif-html5-service
+    service-plan: app-host
+- name: cap-serv-notif-destination-service
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: false
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          existing_destinations_policy: update
+      version: 1.0.0
+    service: destination
+    service-name: cap-serv-notif-destination-service
+    service-plan: lite
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+  - builder: custom
+    commands:
+    - npm ci
+    - npx cds build --production
